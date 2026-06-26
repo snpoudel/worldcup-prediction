@@ -218,6 +218,24 @@ if _needs_sync:
 if "confirm_exit" not in st.session_state:
     st.session_state.confirm_exit = False
 
+# Red Exit button — targets the status bar row uniquely via :has() on the caption
+st.markdown("""<style>
+[data-testid="stHorizontalBlock"]:has(
+    > [data-testid="stColumn"]:first-child [data-testid="stCaptionContainer"]
+) [data-testid="stColumn"]:last-child button {
+    background-color: #ff4b4b;
+    color: white;
+    border: 1px solid #dc3545;
+}
+[data-testid="stHorizontalBlock"]:has(
+    > [data-testid="stColumn"]:first-child [data-testid="stCaptionContainer"]
+) [data-testid="stColumn"]:last-child button:hover {
+    background-color: #cc0000;
+    border-color: #cc0000;
+    color: white;
+}
+</style>""", unsafe_allow_html=True)
+
 _col_who, _col_exit = st.columns([5, 1])
 _col_who.caption(f"👤 **{st.session_state.player['name']}**  ·  {group['name']}")
 if _col_exit.button("Exit"):
