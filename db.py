@@ -5,6 +5,7 @@ import string
 from contextlib import contextmanager
 
 DB_PATH = "predictor.db"
+GROUP_LIMIT = 20
 
 # Bracket structure: round_order defines progression.
 ROUNDS = ["R32", "R16", "QF", "SF", "F"]
@@ -112,6 +113,19 @@ def create_group(name):
                     (group_id, rnd, slot, home, away),
                 )
     return code, group_id
+
+
+def get_all_groups():
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM groups ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_group_count():
+    with get_conn() as conn:
+        return conn.execute("SELECT COUNT(*) FROM groups").fetchone()[0]
 
 
 def get_group_by_code(code):

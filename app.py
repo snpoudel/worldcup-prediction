@@ -80,7 +80,7 @@ if st.session_state.group is None:
     )
     st.write("")
 
-    tab_join, tab_create = st.tabs(["🔑 Join a group", "➕ Create a group"])
+    tab_join, tab_create = st.tabs(["🔑 Join with code", "➕ Create a group"])
 
     with tab_join:
         code_input = st.text_input("Group code", max_chars=6, placeholder="e.g. ABC123")
@@ -95,15 +95,34 @@ if st.session_state.group is None:
                 st.error("No group found with that code — check it and try again.")
 
     with tab_create:
-        gname = st.text_input("Group name", placeholder="e.g. Office Pool 2026")
-        if st.button("Create group →", type="primary", use_container_width=True, key="create_btn"):
-            if gname.strip():
-                code, _gid = db.create_group(gname.strip())
-                st.session_state.group = db.get_group_by_code(code)
-                st.query_params["g"] = code
+        group_count = db.get_group_count()
+        if group_count >= db.GROUP_LIMIT:
+            st.warning(
+                f"Group capacity reached ({group_count}/{db.GROUP_LIMIT}). "
+                "No new groups can be created on this app instance."
+            )
+        else:
+            st.caption(f"Groups: {group_count}/{db.GROUP_LIMIT}")
+            gname = st.text_input("Group name", placeholder="e.g. Office Pool 2026")
+            if st.button("Create group →", type="primary", use_container_width=True, key="create_btn"):
+                if gname.strip():
+                    code, _gid = db.create_group(gname.strip())
+                    st.session_state.group = db.get_group_by_code(code)
+                    st.query_params["g"] = code
+                    st.rerun()
+                else:
+                    st.error("Enter a group name.")
+
+    # Existing groups — click to jump straight in
+    all_groups = db.get_all_groups()
+    if all_groups:
+        st.divider()
+        st.write("**Existing groups — click to join:**")
+        for g in all_groups:
+            if st.button(g["name"], key=f"grp_{g['id']}", use_container_width=True):
+                st.session_state.group = g
+                st.query_params["g"] = g["code"]
                 st.rerun()
-            else:
-                st.error("Enter a group name.")
 
     st.stop()
 
