@@ -3,6 +3,7 @@
 Run with: streamlit run app.py
 """
 import streamlit as st
+from datetime import datetime, timedelta
 import db
 import live_scores
 
@@ -120,6 +121,20 @@ if st.session_state.group is None:
 group = st.session_state.group
 gid = group["id"]
 
+# Auto-sync live scores once per hour — no manual action needed
+_last = db.get_last_synced(gid)
+_needs_sync = True
+if _last:
+    try:
+        _age = datetime.utcnow() - datetime.strptime(_last, "%Y-%m-%d %H:%M:%S")
+        _needs_sync = _age > timedelta(hours=1)
+    except Exception:
+        pass
+if _needs_sync:
+    with st.spinner("Syncing live scores…"):
+        live_scores.sync_results(gid, db)
+        db.set_last_synced(gid)
+
 tab_predict, tab_bracket, tab_leaderboard, tab_admin = st.tabs(
     ["📝 Predict", "🏆 Bracket", "📊 Leaderboard", "⚙️ Admin (results)"]
 )
@@ -204,6 +219,7 @@ with tab_admin:
         if st.button("🔄 Refresh real scores", type="primary"):
             with st.spinner("Fetching live scores..."):
                 updated, draws, err = live_scores.sync_results(gid, db)
+                db.set_last_synced(gid)
             if err:
                 st.error(err)
             else:
@@ -211,6 +227,9 @@ with tab_admin:
                 if draws:
                     msg += f" {draws} draw(s) found — set the penalty winner below."
                 st.success(msg)
+        _ls = db.get_last_synced(gid)
+        if _ls:
+            st.caption(f"Last synced: {_ls} UTC")
     with col_b:
         st.caption(
             "Pulls real results from a free, community-maintained World Cup "

@@ -37,7 +37,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code TEXT UNIQUE NOT NULL,
             name TEXT NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            last_synced_at TEXT
         );
 
         CREATE TABLE IF NOT EXISTS players (
@@ -72,9 +73,13 @@ def init_db():
         """)
     # Migration: add columns to existing databases that predate this schema
     with get_conn() as conn:
-        for col in ["match_date TEXT", "match_time TEXT"]:
+        for tbl_col in [
+            ("matches", "match_date TEXT"),
+            ("matches", "match_time TEXT"),
+            ("groups",  "last_synced_at TEXT"),
+        ]:
             try:
-                conn.execute(f"ALTER TABLE matches ADD COLUMN {col}")
+                conn.execute(f"ALTER TABLE {tbl_col[0]} ADD COLUMN {tbl_col[1]}")
             except Exception:
                 pass  # column already exists
 
@@ -244,6 +249,22 @@ def get_players(group_id):
             "SELECT * FROM players WHERE group_id = ? ORDER BY name", (group_id,)
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def get_last_synced(group_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT last_synced_at FROM groups WHERE id=?", (group_id,)
+        ).fetchone()
+        return row["last_synced_at"] if row else None
+
+
+def set_last_synced(group_id):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE groups SET last_synced_at=datetime('now') WHERE id=?",
+            (group_id,),
+        )
 
 
 def compute_leaderboard(group_id):
