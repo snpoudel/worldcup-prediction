@@ -223,6 +223,19 @@ def _propagate_winner(match, forced_winner=None):
         )
 
 
+def get_match_predictions(match_id):
+    """Return all predictions for a match with player names, ordered by player name."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT p.name, pr.pred_home, pr.pred_away
+               FROM predictions pr JOIN players p ON p.id = pr.player_id
+               WHERE pr.match_id = ?
+               ORDER BY p.name""",
+            (match_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def get_prediction(match_id, player_id):
     with get_conn() as conn:
         row = conn.execute(

@@ -137,8 +137,8 @@ if _needs_sync:
         live_scores.sync_results(gid, db)
         db.set_last_synced(gid)
 
-tab_predict, tab_bracket, tab_leaderboard, tab_admin = st.tabs(
-    ["📝 Predict", "🏆 Bracket", "📊 Leaderboard", "⚙️ Admin (results)"]
+tab_predict, tab_bracket, tab_leaderboard, tab_all_preds, tab_admin = st.tabs(
+    ["📝 Predict", "🏆 Bracket", "📊 Leaderboard", "👀 Predictions", "⚙️ Admin (results)"]
 )
 
 # ---------- Predict tab ----------
@@ -202,6 +202,42 @@ with tab_leaderboard:
                 for i, row in enumerate(lb)
             ]
         )
+
+# ---------- Predictions tab ----------
+with tab_all_preds:
+    round_choice3 = st.selectbox(
+        "Round", db.ROUNDS, format_func=lambda r: db.ROUND_LABELS[r], key="preds_round"
+    )
+    st.markdown(f"### {db.ROUND_LABELS[round_choice3]}")
+    st.divider()
+    for m in db.get_matches(gid, round_choice3):
+        home = m["team_home"] or "TBD"
+        away = m["team_away"] or "TBD"
+        header = f"**{home} vs {away}**"
+        if m["actual_home"] is not None:
+            header += f"  —  result: {m['actual_home']}-{m['actual_away']}"
+        st.markdown(header)
+        date_str = fmt_match_date(m)
+        if date_str:
+            st.caption(f"📅 {date_str}")
+
+        preds = db.get_match_predictions(m["id"])
+        if not preds:
+            st.caption("No predictions yet.")
+        else:
+            for p in preds:
+                score = f"{p['pred_home']}-{p['pred_away']}"
+                icon = ""
+                if m["actual_home"] is not None:
+                    if p["pred_home"] == m["actual_home"] and p["pred_away"] == m["actual_away"]:
+                        icon = " ⭐"
+                    else:
+                        a_out = "H" if m["actual_home"] > m["actual_away"] else ("A" if m["actual_away"] > m["actual_home"] else "D")
+                        p_out = "H" if p["pred_home"] > p["pred_away"] else ("A" if p["pred_away"] > p["pred_home"] else "D")
+                        if a_out == p_out:
+                            icon = " ✅"
+                st.write(f"- {p['name']}: **{score}**{icon}")
+        st.divider()
 
 # ---------- Admin tab ----------
 with tab_admin:
