@@ -1,4 +1,6 @@
-# World Cup Goal Predictor
+# World Cup Goal Prediction
+
+ToDO: Don't let user enter predictor after game is over
 
 **Live app:** https://worldcup-goal.streamlit.app/
 
