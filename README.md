@@ -1,8 +1,8 @@
-# World Cup Predictor
+# World Cup Goal Predictor
 
 **Live app:** https://worldcup-goal.streamlit.app/
 
-Predict World Cup 2026 knockout match scores with friends — from Round of 32 all the way to the Final.
+Predict FIFA World Cup 2026 knockout match scores with friends — from Round of 32 all the way to the Final.
 
 ## How to play
 
