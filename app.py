@@ -253,6 +253,9 @@ if _needs_sync:
         live_scores.sync_results(gid, db)
         db.set_last_synced(gid)
         st.session_state.last_synced_checked = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        _get_matches.clear()
+        _compute_leaderboard.clear()
+        _get_all_match_preds.clear()
 
 # Status bar — visible on mobile without opening the sidebar
 if "confirm_exit" not in st.session_state:
