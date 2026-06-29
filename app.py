@@ -287,7 +287,7 @@ with tab_predict:
                 kick_off = datetime.strptime(
                     f"{m['match_date']} {m['match_time']}", "%Y-%m-%d %H:%M"
                 )
-                locked = datetime.utcnow() >= kick_off - timedelta(hours=1)
+                locked = datetime.utcnow() >= kick_off - timedelta(minutes=1)
             except Exception:
                 pass
         elif m["actual_home"] is not None:
@@ -308,7 +308,7 @@ with tab_predict:
                                    key=f"pa_{m['id']}", label_visibility="collapsed",
                                    disabled=locked)
         if locked:
-            st.caption("🔒 Predictions locked — less than 1 hour to kick-off.")
+            st.caption("🔒 Predictions locked — less than 1 minute to kick-off.")
         elif st.button("Save", key=f"save_{m['id']}", use_container_width=True):
             db.upsert_prediction(m["id"], player["id"], ph, pa)
             st.toast(f"Saved: {home} {ph}-{pa} {away}")
