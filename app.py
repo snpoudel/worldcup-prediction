@@ -124,17 +124,6 @@ if st.session_state.group is None:
                 else:
                     st.error("Enter a group name.")
 
-    # Existing groups — click to jump straight in
-    all_groups = db.get_all_groups()
-    if all_groups:
-        st.divider()
-        st.write("**Existing groups — click to join:**")
-        for g in all_groups:
-            if st.button(g["name"], key=f"grp_{g['id']}", use_container_width=True):
-                st.session_state.group = g
-                st.query_params["g"] = g["code"]
-                st.rerun()
-
     # Admin panel — password-protected, only visible to you
     st.divider()
     with st.expander("🔧 Admin"):
@@ -192,23 +181,25 @@ gid = group["id"]
 # ---------- player name (in main area — works on mobile) ----------
 if st.session_state.player is None:
     st.title(f"🏆 {group['name']}")
-    st.write("Enter your name to start predicting:")
+    st.write("Enter your name and password to start predicting:")
     pname = st.text_input("Your name", placeholder="e.g. Sandeep")
     ppwd = st.text_input(
-        "Password (optional)",
+        "Password",
         type="password",
-        placeholder="Set one to protect your account",
+        placeholder="Choose a password",
     )
     if st.button("Let's go →", type="primary", use_container_width=True):
-        if pname.strip():
-            player, err = db.get_or_create_player(gid, pname, ppwd or None)
+        if not pname.strip():
+            st.error("Enter your name.")
+        elif not ppwd.strip():
+            st.error("Enter a password.")
+        else:
+            player, err = db.get_or_create_player(gid, pname, ppwd)
             if err:
                 st.error(err)
             else:
                 st.session_state.player = player
                 st.rerun()
-        else:
-            st.error("Enter your name.")
     st.stop()
 
 # ---------- auto-sync live scores once per hour ----------
@@ -395,6 +386,15 @@ with tab_admin:
         "Anyone can access this tab — there's no separate admin login. "
         "Use it to enter real match results as they happen; later rounds auto-fill with winners."
     )
+
+    with st.expander("👥 Players & passwords"):
+        _all_players = db.get_players_with_passwords(gid)
+        if _all_players:
+            st.table([{"Name": p["name"], "Password": p["password"] or "(none)"} for p in _all_players])
+        else:
+            st.caption("No players yet.")
+
+    st.divider()
 
     if st.button("🔄 Refresh real scores", type="primary"):
         with st.spinner("Fetching live scores..."):

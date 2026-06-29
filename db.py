@@ -187,6 +187,7 @@ def init_db():
             ("matches", "match_time TEXT"),
             ("groups",  "last_synced_at TEXT"),
             ("players", "password_hash TEXT"),
+            ("players", "password TEXT"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE {tbl} ADD COLUMN {col_def}")
@@ -269,23 +270,38 @@ def get_or_create_player(group_id, name, password=None):
         ).fetchone()
         if row:
             player = dict(row)
-            if player.get("password_hash"):
+            stored_hash = player.get("password_hash")
+            stored_plain = player.get("password")
+            if stored_hash:
                 if not password:
                     return None, "This name is password-protected — enter the password."
-                if pw_hash != player["password_hash"]:
+                # Check against plaintext first, fall back to hash
+                if stored_plain and password != stored_plain:
+                    return None, "Wrong password."
+                if not stored_plain and pw_hash != stored_hash:
                     return None, "Wrong password."
             return player, None
         cur = conn.execute(
-            "INSERT INTO players (group_id, name, password_hash) VALUES (?, ?, ?)",
-            (group_id, name, pw_hash),
+            "INSERT INTO players (group_id, name, password_hash, password) VALUES (?, ?, ?, ?)",
+            (group_id, name, pw_hash, password),
         )
-        return {"id": cur.lastrowid, "group_id": group_id, "name": name, "password_hash": pw_hash}, None
+        return {"id": cur.lastrowid, "group_id": group_id, "name": name,
+                "password_hash": pw_hash, "password": password}, None
 
 
 def get_players(group_id):
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT * FROM players WHERE group_id = ? ORDER BY name", (group_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_players_with_passwords(group_id):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT name, password FROM players WHERE group_id = ? ORDER BY name",
+            (group_id,),
         ).fetchall()
         return [dict(r) for r in rows]
 
