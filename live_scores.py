@@ -113,12 +113,20 @@ def sync_results(group_id, db_module):
         if not local:
             continue
         if info["team1"] and info["team2"]:
-            db_module.update_team_names(
-                local["id"], info["team1"], info["team2"],
-                info.get("date"), info.get("time"),
-            )
+            # Only write if something actually changed — avoids 31 HTTP round-trips
+            # to Turso on every sync when the data is already up to date.
+            if (local.get("team_home") != info["team1"]
+                    or local.get("team_away") != info["team2"]
+                    or local.get("match_date") != info.get("date")
+                    or local.get("match_time") != info.get("time")):
+                db_module.update_team_names(
+                    local["id"], info["team1"], info["team2"],
+                    info.get("date"), info.get("time"),
+                )
         elif info.get("date") or info.get("time"):
-            db_module.update_match_date(local["id"], info.get("date"), info.get("time"))
+            if (local.get("match_date") != info.get("date")
+                    or local.get("match_time") != info.get("time")):
+                db_module.update_match_date(local["id"], info.get("date"), info.get("time"))
 
     # Sync scores for played matches
     updated = 0

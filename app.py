@@ -49,6 +49,10 @@ def _compute_leaderboard(gid):
 def _get_all_match_preds(gid, rnd):
     return db.get_all_match_predictions(gid, rnd)
 
+@st.cache_data(ttl=60)
+def _get_players_with_passwords(gid):
+    return db.get_players_with_passwords(gid)
+
 # ---------- helpers ----------
 
 def match_label(m):
@@ -288,6 +292,7 @@ if st.session_state.confirm_exit:
         _get_player_preds.clear()
         _compute_leaderboard.clear()
         _get_all_match_preds.clear()
+        _get_players_with_passwords.clear()
         st.session_state.group = None
         st.session_state.player = None
         st.session_state.confirm_exit = False
@@ -318,18 +323,20 @@ with tab_predict:
             st.write(f"Match {m['slot']+1}: TBD vs TBD (waiting on previous round)")
             continue
 
-        # Lock predictions 1 hour before kick-off (or if result already entered)
-        locked = False
-        if m.get("match_date") and m.get("match_time"):
+        # Lock if result is already entered, or within 1 minute of kick-off.
+        # Check actual_home first and independently — don't rely on date/time being set.
+        locked = m["actual_home"] is not None
+        if not locked and m.get("match_date"):
             try:
-                kick_off = datetime.strptime(
-                    f"{m['match_date']} {m['match_time']}", "%Y-%m-%d %H:%M"
-                )
+                # Feed stores times as "HH:MM UTC" — strip the suffix before parsing.
+                time_raw = (m.get("match_time") or "").replace(" UTC", "").strip()
+                if time_raw:
+                    kick_off = datetime.strptime(f"{m['match_date']} {time_raw}", "%Y-%m-%d %H:%M")
+                else:
+                    kick_off = datetime.strptime(m["match_date"], "%Y-%m-%d")
                 locked = datetime.utcnow() >= kick_off - timedelta(minutes=1)
             except Exception:
                 pass
-        elif m["actual_home"] is not None:
-            locked = True
 
         cols = st.columns([3, 1, 1])
         cols[0].write(f"**{home}** vs **{away}**")
@@ -429,7 +436,7 @@ with tab_admin:
     )
 
     with st.expander("👥 Players & passwords"):
-        _all_players = db.get_players_with_passwords(gid)
+        _all_players = _get_players_with_passwords(gid)
         if _all_players:
             st.table([{"Name": p["name"], "Password": p["password"] or "(none)"} for p in _all_players])
         else:

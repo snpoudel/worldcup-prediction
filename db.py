@@ -496,31 +496,36 @@ def set_last_synced(group_id):
 # ---------------------------------------------------------------------------
 
 def compute_leaderboard(group_id):
-    matches = [m for m in get_matches(group_id) if m["actual_home"] is not None]
-    players = get_players(group_id)
-    scores = {p["id"]: {"name": p["name"], "points": 0, "exact": 0, "correct": 0} for p in players}
-
     with get_conn() as conn:
-        for m in matches:
-            preds = conn.execute(
-                "SELECT * FROM predictions WHERE match_id = ?", (m["id"],)
-            ).fetchall()
-            actual_outcome = _outcome(m["actual_home"], m["actual_away"])
-            for p in preds:
-                p = dict(p)
-                if p["player_id"] not in scores:
-                    continue
-                pred_outcome = _outcome(p["pred_home"], p["pred_away"])
-                pts = 0
-                if pred_outcome == actual_outcome:
-                    pts += 1
-                    scores[p["player_id"]]["correct"] += 1
-                if p["pred_home"] == m["actual_home"] and p["pred_away"] == m["actual_away"]:
-                    pts += 1
-                    scores[p["player_id"]]["exact"] += 1
-                scores[p["player_id"]]["points"] += pts
-
-    return sorted(scores.values(), key=lambda s: -s["points"])
+        rows = conn.execute(
+            """
+            SELECT
+                p.name,
+                SUM(CASE
+                    WHEN m.actual_home IS NOT NULL
+                         AND pr.pred_home = m.actual_home
+                         AND pr.pred_away = m.actual_away
+                    THEN 1 ELSE 0 END) AS exact,
+                SUM(CASE
+                    WHEN m.actual_home IS NOT NULL AND (
+                        (m.actual_home > m.actual_away AND pr.pred_home > pr.pred_away) OR
+                        (m.actual_home < m.actual_away AND pr.pred_home < pr.pred_away) OR
+                        (m.actual_home = m.actual_away AND pr.pred_home = pr.pred_away))
+                    THEN 1 ELSE 0 END) AS correct
+            FROM players p
+            LEFT JOIN predictions pr ON pr.player_id = p.id
+            LEFT JOIN matches m ON m.id = pr.match_id
+            WHERE p.group_id = ?
+            GROUP BY p.id, p.name
+            """,
+            (group_id,),
+        ).fetchall()
+    result = [
+        {"name": r["name"], "exact": r["exact"], "correct": r["correct"],
+         "points": r["exact"] + r["correct"]}
+        for r in rows
+    ]
+    return sorted(result, key=lambda s: -s["points"])
 
 
 def _outcome(home, away):
